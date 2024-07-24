@@ -30,7 +30,8 @@ export async function execute({
         args: [
             '--disable-web-security',
             '--disable-features=IsolateOrigins',
-            '--disable-site-isolation-trials'
+            '--disable-site-isolation-trials',
+            '--no-sandbox',
         ],
         defaultViewport: {
             width: 1680,
@@ -81,7 +82,7 @@ export async function execute({
                         body:  responseBody ? responseBody.toString():"",
                     };
                })
-               
+
             // TODO - How to handle collapsed panels
             
             log("goto",fullRoute);
