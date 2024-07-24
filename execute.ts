@@ -49,7 +49,7 @@ export async function execute({
     let tryCounter = 0;
     let dataSourceQueries : {[key: string]: object} = {};
 
-    const dataSourceQueryRE = new RegExp("https?://[^/]+/api/ds/query");
+    const dataSourceQueryRE = new RegExp("https?://.*/api/(datasources|ds)/(query|proxy)");
 
     while (!success && tryCounter <= 3) {
         try {
@@ -141,6 +141,18 @@ export async function execute({
                     (e as HTMLElement).style.display = "none";
                     return e;
                 });
+            });
+
+            log("get all lazy loaded content....")
+            await page.evaluate(async ()=>{
+                return await Promise.all(Array.from(document.querySelectorAll('.scrollbar-view')).map(async elem => {
+                    const s = (elem as HTMLElement);
+                    for(let i = 0; i < s.offsetHeight; i+= 10) {
+                        s.scrollTo(0,i);
+                        await new Promise(cb=>setTimeout(cb,10));
+                    }
+                    s.scrollTo(0,0);
+                }));
             });
 
             await page.setJavaScriptEnabled(false);

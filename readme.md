@@ -19,8 +19,7 @@ Usage
 grafana-report export <url> ( -o <whereToOutput> )
 
 # Example
-grafana-report export https://play.grafana.org/d/a42e82b0-1971-4dc9-8a74-7577142f19a3/
-8b9cb853-54c5-51bb-b17e-8bab90267e5f
+grafana-report export https://play.grafana.org/d/a42e82b0-1971-4dc9-8a74-7577142f19a3/8b9cb853-54c5-51bb-b17e-8bab90267e5f
 ````
 
 ### Docker
