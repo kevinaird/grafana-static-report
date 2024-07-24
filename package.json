@@ -1,0 +1,23 @@
+{
+  "name": "grafana-static-report",
+  "version": "0.0.1",
+  "description": "Convert a live Grafana Dashboard to a static mhtml report file",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npx tsc -w"
+  },
+  "author": "Kevin Aird",
+  "license": "ISC",
+  "bin": {
+    "grafana-report": "./index.js"
+  },
+  "dependencies": {
+    "mkdirp": "^3.0.1",
+    "puppeteer": "^22.13.1",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.3"
+  }
+}
