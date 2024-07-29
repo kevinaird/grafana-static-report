@@ -3,3 +3,4 @@ static
 *.js
 *.log
 *.jar
+test/output
