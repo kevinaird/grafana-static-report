@@ -42,6 +42,7 @@ jobs:
         run: |
           docker run --rm \
             --name grafana-report-unit-test \
+            --security-opt=seccomp:unconfined \
             --entrypoint npm \
             --network host \
             kevinaird/grafana-report-unit-test run test
