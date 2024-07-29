@@ -31,7 +31,7 @@ jobs:
             --network host \
             -v $(pwd)/jmeter:/jmeter \
             -v $(pwd)/jmeter/plugins:/plugins \
-            -it justb4/jmeter -n \
+            justb4/jmeter -n \
             -t /jmeter/test.jmx \
             -j /jmeter/jmeter.log
       
@@ -44,4 +44,4 @@ jobs:
             --name grafana-report-unit-test \
             --entrypoint npm \
             --network host \
-            -it kevinaird/grafana-report-unit-test run test
+            kevinaird/grafana-report-unit-test run test
