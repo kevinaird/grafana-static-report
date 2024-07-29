@@ -29,8 +29,8 @@ jobs:
           docker run --rm \
             --name jmeter \
             --network host \
-            -v $(pwd)/jmeter:/jmeter \
-            -v $(pwd)/jmeter/plugins:/plugins \
+            -v $(pwd)/test/jmeter:/jmeter \
+            -v $(pwd)/test/jmeter/plugins:/plugins \
             justb4/jmeter -n \
             -t /jmeter/test.jmx \
             -j /jmeter/jmeter.log
