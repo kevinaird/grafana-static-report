@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install gnupg wget -y && \
 
 WORKDIR /app
 
-RUN npx puppeteer browsers install chrome
+RUN npx puppeteer@22.13.1 browsers install chrome@126.0.6478.182
 
 COPY package*.json ./
 
