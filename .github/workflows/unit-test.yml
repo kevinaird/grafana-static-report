@@ -15,7 +15,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Start up influx and grafana stack
-        run: cd test && docker-compose up -d --wait
+        run: cd test && docker compose up -d --wait
       
       - name: Setup JMeter Plugins
         run: |
