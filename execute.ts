@@ -12,12 +12,17 @@ export interface executeParams {
     fullRoute: string,
     output: string,
     verbose: boolean,
+    username: string,
+    password: string,
     log: Function,
+    warn: Function,
 }
 
 export async function execute({ 
     fullRoute, output, verbose=false,   
     log=console.log,
+    warn=console.warn,
+    username, password,
 }: executeParams) {
 
     output = output ?? path.join(__dirname,"static","dash")
@@ -49,6 +54,7 @@ export async function execute({
     let tryCounter = 0;
     let dataSourceQueries : {[key: string]: object} = {};
 
+    const vlog = verbose ? log : () => {};
     const dataSourceQueryRE = new RegExp("https?://.*/api/(datasources|ds)/(query|proxy)");
 
     while (!success && tryCounter <= 3) {
@@ -56,35 +62,47 @@ export async function execute({
             log("new page...");
             const page = await browser.newPage();
 
+            await page.setDefaultNavigationTimeout(120000);
+
+            if(username) {
+                const auth_string = `${username}:${password}`;
+                const auth_header = 'Basic ' + new (Buffer.from as any)(auth_string).toString('base64');
+                await page.setExtraHTTPHeaders({'Authorization': auth_header});
+                log("Using auth header...",auth_header);
+            }
+
             dataSourceQueries  = {};
 
             page
-              .on('console', message => log(`${message.type().toUpperCase()}: ${message.text()}`))
-              .on('pageerror', ({ message }) => log(message))
-
+              .on('console', message => {
+                vlog(`${message.type().toUpperCase()}: ${message.text()}`)
+               })
+              .on('pageerror', ({ message }) => {
+                vlog(message)
+              })
               // Intercept all /api/ds/query calls and save responses
               .on('response', async(response) => {
                     const request = response.request();
-                    
-                    if(!dataSourceQueryRE.test(request.url())) return;
+                    const req_url = request.url();
+
+                    if(!dataSourceQueryRE.test(req_url)) return;
 
                     if(!response) return request.continue();
                 
                     const responseHeaders = response.headers();
                     const responseBody = await response.text();
 
-                    const u = new URL(request.url());
+                    const u = new URL(req_url);
+                    vlog(`Intercepted response: ${req_url}`)
 
-                    dataSourceQueries[request.url()] = {
-                        url: request.url(),
+                    dataSourceQueries[req_url] = {
+                        url: req_url,
                         query: Object.fromEntries(u.searchParams),
                         headers: responseHeaders,
                         body:  responseBody ? responseBody.toString():"",
                     };
                })
 
-            // TODO - How to handle collapsed panels
-            
             log("goto",fullRoute);
             await page.goto(fullRoute,{
                 waitUntil: 'networkidle0',
@@ -95,68 +113,95 @@ export async function execute({
                 visible: true,
             });
 
-            // log("test changing everything....");
-            // await page.evaluate(()=>{
-            //     document.getElementsByClassName("main-view")[0].innerHTML = "hello world";
-            // });
-
-            log("convert canvases to images...");
-            await page.evaluate(() => {
-                const canvas_list = Array.from(document.getElementsByTagName("canvas"));
-                console.log("canvas_list.length=",canvas_list.length);
-
-                return canvas_list.map((canvas,i) => {
-                    const img = canvas.toDataURL();
-                    canvas.outerHTML = `<img src="${img}" style="width: 100%; height:100%;" />`;
+            try {
+                log("expand all collapsed content....")
+                await page.$$eval('.dashboard-row--collapsed > button',elements => {
+                    return elements.map(b => (b as HTMLElement).click());
                 });
-            });
+            } catch(err) {
+                warn("Unable to expand all collapsed content",err);
+            }
 
-            log("fix overflows....");
-            await page.$$eval('[data-testid="data-testid panel content"] .scrollbar-view',elements => {
-                return elements.map(e => {
-                    (e as HTMLElement).style.overflow = "hidden";
-                    return e;
+            try {
+                log("get all lazy loaded content....") // doesnt work with virtual tables
+                await page.evaluate(async ()=>{
+                    return await Promise.all(Array.from(document.querySelectorAll('.scrollbar-view')).map(async elem => {
+                        const s = (elem as HTMLElement);
+                        for(let i = 0; i < s.offsetHeight; i+= 10) {
+                            s.scrollTo(0,i);
+                            await new Promise(cb=>setTimeout(cb,10));
+                        }
+                        s.scrollTo(0,0);
+                    }));
                 });
-            });
+            } catch(err) {
+                warn("Unable to get all lazy loaded content",err);
+            }
 
-            log("hide grafana navs...");
-            await page.$$eval('nav',elements => {
-                return elements.map(e => {
+            try {
+                log("convert canvases to images...");
+                await page.evaluate(() => {
+                    const canvas_list = Array.from(document.getElementsByTagName("canvas"));
+                    console.log("canvas_list.length=",canvas_list.length);
+
+                    return canvas_list.map((canvas,i) => {
+                        const img = canvas.toDataURL();
+                        canvas.outerHTML = `<img src="${img}" style="width: 100%; height:100%;" />`;
+                    });
+                });
+            } catch(err) {
+                warn("Unable to convert all canvases to images",err);
+            }
+
+            try {
+                log("fix overflows....");
+                await page.$$eval('[data-testid="data-testid panel content"] .scrollbar-view',elements => {
+                    return elements.map(e => {
+                        (e as HTMLElement).style.overflow = "hidden";
+                        return e;
+                    });
+                });
+            } catch(err) {
+                warn("Unable to fix overflows")
+            }
+
+            try {
+                log("hide grafana navs...");
+                await page.$$eval('nav',elements => {
+                    return elements.map(e => {
+                        (e as HTMLElement).style.display = "none";
+                        return e;
+                    });
+                });
+            } catch(err) {
+                warn("Unable to hide grafana navs")
+            }
+
+            try {
+                log("hide grafana header...");
+                await page.$eval('header',e => {
                     (e as HTMLElement).style.display = "none";
-                    return e;
                 });
-            });
-
-            log("hide grafana header...");
-            await page.$eval('header',e => {
-                (e as HTMLElement).style.display = "none";
-            });
-            await page.$eval('header+div',e => {
-                (e as HTMLElement).style.paddingTop = "0px";
-            });
-
-            log("hide grafana warnings...");
-            await page.$$eval('[data-testid="data-testid Alert warning"]',elements => {
-                return elements.map(e => {
-                    (e as HTMLElement).style.display = "none";
-                    return e;
+                await page.$eval('header+div',e => {
+                    (e as HTMLElement).style.paddingTop = "16px";
                 });
-            });
+            } catch(err) {
+                warn("Unable to hide grafana header",err);
+            }
 
-            log("get all lazy loaded content....")
-            await page.evaluate(async ()=>{
-                return await Promise.all(Array.from(document.querySelectorAll('.scrollbar-view')).map(async elem => {
-                    const s = (elem as HTMLElement);
-                    for(let i = 0; i < s.offsetHeight; i+= 10) {
-                        s.scrollTo(0,i);
-                        await new Promise(cb=>setTimeout(cb,10));
-                    }
-                    s.scrollTo(0,0);
-                }));
-            });
+            try {
+                log("hide grafana warnings...");
+                await page.$$eval('[data-testid="data-testid Alert warning"]',elements => {
+                    return elements.map(e => {
+                        (e as HTMLElement).style.display = "none";
+                        return e;
+                    });
+                });
+            } catch(err) {
+                warn("Unable to hide all grafana warnings",err);
+            }
 
             await page.setJavaScriptEnabled(false);
-            // log("canvasReplacements.length=",canvasReplacements.length);
 
             await new Promise(cb => setTimeout(cb, 3*1000));
 
@@ -173,13 +218,6 @@ export async function execute({
             const response = await client.send('Page.captureSnapshot');
             mhtml = response.data;
             
-            // html = await page.evaluate(() => document.documentElement.outerHTML);
-
-            // await page.evaluate(()=> {
-            //     Array.from(document.getElementsByTagName("link"))
-            //         .forEach(link => link.setAttribute("crossorigin","anonymous"))
-            // });
-
             log("Dump styles...");
             styles = await page.evaluate(() => {
                 const { styleSheets } = document;
@@ -214,17 +252,6 @@ export async function execute({
         return;
     }
 
-    // const $ = cheerio.load(html);
-    // $('canvas').each((i,canvas) => {
-    //     $(canvas).replaceWith(canvasReplacements[i]);
-    // });
-    // // $('html > head').append(`<styles>${styles}</styles>`);
-    // html = $.html();
-    
-    // log("extract media from mhtml....");
-    // const media = mhtml2html.parse(mhtml, { parseDOM: (html:string) => new JSDOM(html) });
-    // const media_doc = JSON.stringify(media,null,3);
-     
     log("writing static content..",output);
 
     await fs.promises.writeFile(output+".mhtml", mhtml);

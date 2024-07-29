@@ -11,6 +11,16 @@ require('yargs')
       describe: 'directory to output the file to',
       alias: 'o',
     })
+    .option('username', {
+        type: 'string',
+        describe: 'Grafana username',
+        alias: 'u',
+    })
+    .option('password', {
+        type: 'string',
+        describe: 'Grafana password',
+        alias: 'p',
+    })
     .demandOption(['url'],"url is required")
   }, function (argv:any) {
     console.time("execute");
